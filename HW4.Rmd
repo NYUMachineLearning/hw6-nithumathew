@@ -164,6 +164,67 @@ importance(rfmodel)
 
 1. Compare the most important features from at least 2 different classes of feature selection methods covered in this tutorial with any reasonable machine learning dataset from mlbench. Do these feature selection methods provide similar results? 
 
+*Random Forest*
+```{r}
+#data
+data("PimaIndiansDiabetes")
+train_size <- floor(0.75 * nrow(PimaIndiansDiabetes))
+set.seed(25)
+train_pos <- sample(seq_len(nrow(PimaIndiansDiabetes)), size = train_size)
+
+
+train_classification <- PimaIndiansDiabetes[train_pos, ]
+test_classification <- PimaIndiansDiabetes[-train_pos, ]
+
+#fit a model
+rfmodel = randomForest(diabetes ~ pregnant + glucose + pressure + triceps + insulin + mass + pedigree + age, data=train_classification,  importance = TRUE, oob.times = 15, confusion = TRUE)
+
+#rank features based on importance 
+importance(rfmodel)
+```
+
+From Random Forests we see that the most valuable features are **glucose, mass, age, preganant and pedigree**.
+
+*Recursive Feature Elimination*
+```{r}
+#define the control 
+control = rfeControl(functions = caretFuncs, number = 2)
+
+# run the RFE algorithm
+results = rfe(PimaIndiansDiabetes[,1:8], PimaIndiansDiabetes[,9], sizes = c(2,5,9), rfeControl = control, method = "svmRadial")
+
+results
+results$variables
+
+#Visualize
+plot(results, type=c("g", "o"))
+
+#list chosen feature
+predictors(results)
+```
+
+
+The top features found using RFE are **glucose, mass, age, pregnant and pedigree**.
+As we can see, the two feature selection methods provide similar results.
+
 2. Attempt a feature selection method not covered in this tutorial (backward elimination, forward propogation, etc.)
 
+*Simulated Annealing*
+```{r}
+# Define control function
+sa_ctrl <- safsControl(functions = rfSA,
+                        method = "repeatedcv",
+                        repeats = 3,
+                        improve = 5) # n iterations without improvement before a reset
+
+
+set.seed(100)
+sa_obj <- safs(x=train_classification[, 1:8], 
+               y=train_classification[, 9],
+               safsControl = sa_ctrl)
+
+sa_obj
+```
+
+When using simulated annealing, the top 5 features were glucose, mass, insulin, pressure and pedigree. 
 

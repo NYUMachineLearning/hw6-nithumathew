@@ -8,7 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,fig.width = 12, fig.height=8)
 ```
 
 ## Tree-Based Methods 
@@ -196,7 +196,78 @@ abline(h = min(test.err), col = "red")
 
 1. Attempt a regression tree-based method (not covered in this tutorial) on a reasonable dataset of your choice. Explain the results. 
 
+```{r}
+data("Carseats")
+```
+
+```{r}
+# Regression Tree Example
+library(rpart)
+
+set.seed(123)
+
+#split into train and test sets (300 and 206 respectively)
+train = sample(1:nrow(Carseats), 300)
+
+#grow tree
+tree.carseats = rpart(Sales~., data = Carseats, subset = train, method = "anova")
+tree.carseats
+
+printcp(tree.carseats) # display the results 
+summary(tree.carseats) # detailed summary of splits
+
+# plot tree 
+plot(tree.carseats, uniform=TRUE, 
+   main="Regression Tree")
+text(tree.carseats, use.n=TRUE, all=TRUE, cex=1.5)
+
+```
+
+A regression tree was plotted for the Carseat Data with Sales as the response variable and all other variables as the input variables. The relevant variables used to make the tree are ShelveLoc, Price, CompPrice, Advertising and Age. The tree has 77 nodes. 
+
 2. Attempt both a bagging and boosting method on a reasonable dataset of your choice. Explain the results.
 
+Bagging - RandomForests
+```{r}
+rf.carseats = randomForest(Sales~., data = Carseats, subset = train)
+rf.carseats
+
+oob.err = double(10)
+test.err = double(10)
+
+for(mtry in 1:10){
+  fit = randomForest(Sales~., data = Carseats, subset = train, mtry=mtry, ntree = 350)
+  oob.err[mtry] = fit$mse[350] ##extract Mean-squared-error 
+  pred = predict(fit, Carseats[-train,]) #predict on test dataset
+  test.err[mtry] = with(Carseats[-train,], mean( (Sales-pred)^2 )) #compute test error
+}
+
+#Visualize 
+matplot(1:mtry, cbind(test.err, oob.err), pch = 23, col = c("red", "blue"), type = "b", ylab="Mean Squared Error")
+legend("topright", legend = c("OOB", "Test"), pch = 23, col = c("red", "blue"))
+```
+As seen in the plot above, for both the testign and training sets, the error reduces as the number of mtry increases.Therefore, bagging successfully reduces error. However, the training error seems to always be less than the test error. 
+ 
+Boosting
+```{r}
+#Gradient Boosting Model
+boost.carseats = gbm(Sales~., data = Carseats[train,], distribution = "gaussian", n.trees = 10000, shrinkage = 0.01, interaction.depth = 4)
+
+#Variable Importance Plot
+summary(boost.carseats)
+
+#Predict on test set
+n.trees = seq(from = 100, to = 10000, by = 100)
+predmat = predict(boost.carseats, newdata = Carseats[-train,], n.trees = n.trees)
+dim(predmat)
+
+#Visualize Boosting Error Plot
+boost.err = with(Carseats[-train,], apply( (predmat - Sales)^2, 2, mean) )
+plot(n.trees, boost.err, pch = 23, ylab = "Mean Squared Error", xlab = "# Trees", main = "Boosting Test Error")
+abline(h = min(test.err), col = "red")
+
+```
+
+As seen in the plot above, the mean squared error reduces with more number of trees. The error reaches a minimum at about a 1000 trees. It then increases and then comes to a level.
 
 
